@@ -1,0 +1,751 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Igualación de segundo orden</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=IBM+Plex+Mono:wght@500;600&family=Public+Sans:wght@400..600&display=swap">
+<style>
+/* Concepto: mesa de ensayo. Tres bandas (selectores, muestra, comparación) sobre un tablero gris-tinta.
+   La interfaz es neutra para que solo los estímulos tengan color; los mosaicos de estímulo no cambian entre temas. */
+:root{
+  --bg:#ECEEF1; --surface:#FFFFFF; --ink:#161B23; --muted:#566170; --line:#C9CFD8;
+  --accent:#161B23; --accent-ink:#FFFFFF;
+  --bar:#5B6A7F; --bar-hi:#3F4D61;
+  --stim-bg:#F6F7F9; --stim-ink:#232B36; --stim-key:#7A8594;
+  --f-display:'Bricolage Grotesque','Segoe UI',system-ui,sans-serif;
+  --f-body:'Public Sans','Segoe UI',system-ui,sans-serif;
+  --f-mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#11151B; --surface:#1A2029; --ink:#EDF0F4; --muted:#9AA5B3; --line:#313A46;
+    --accent:#EDF0F4; --accent-ink:#11151B; --bar:#8393AA; --bar-hi:#A9B6C9;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#11151B; --surface:#1A2029; --ink:#EDF0F4; --muted:#9AA5B3; --line:#313A46;
+  --accent:#EDF0F4; --accent-ink:#11151B; --bar:#8393AA; --bar-hi:#A9B6C9;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{
+  background:var(--bg); color:var(--ink); font-family:var(--f-body); font-size:16px; line-height:1.5;
+  padding-block:20px 48px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+}
+.wrap{max-width:700px;margin-inline:auto}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.1;letter-spacing:-.015em}
+h1{font-size:clamp(28px,6.4vw,44px);font-weight:700}
+h2{font-size:20px;font-weight:700}
+p{margin:0}
+[tabindex="-1"]:focus{outline:none}
+:focus-visible{outline:3px solid var(--ink);outline-offset:3px}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.eyebrow{font-family:var(--f-mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.lead{font-size:17px;max-width:56ch}
+.fine{font-size:13px;color:var(--muted);max-width:60ch}
+.screen{display:grid;gap:20px;align-content:start;min-width:0}
+
+/* botones y formularios */
+.btn{
+  appearance:none;border:0;border-radius:6px;background:var(--accent);color:var(--accent-ink);
+  font:700 16px var(--f-display);padding:14px 22px;cursor:pointer;justify-self:start;
+}
+.btn.ghost{background:transparent;color:var(--ink);border:1.5px solid var(--ink)}
+.btn:active{transform:translateY(1px)}
+.card{background:var(--surface);border:1.5px solid var(--line);border-radius:8px;padding:20px;display:grid;gap:18px}
+.field{display:grid;gap:6px;border:0;padding:0;margin:0;min-width:0}
+.field label,.field legend{font-weight:600;font-size:15px;padding:0}
+.opt{font-weight:400;color:var(--muted)}
+input[type=text],select{
+  font:16px var(--f-body);color:var(--ink);background:var(--bg);border:1.5px solid var(--line);
+  border-radius:6px;padding:10px 12px;width:100%;
+}
+.radios{display:grid;grid-template-columns:repeat(4,1fr);border:1.5px solid var(--ink);border-radius:6px;overflow:hidden}
+.radios:focus-within{outline:3px solid var(--ink);outline-offset:3px}
+.ropt{position:relative}
+.ropt+.ropt{border-left:1.5px solid var(--ink)}
+.ropt input{position:absolute;inset:0;opacity:0;margin:0;cursor:pointer}
+.ropt label{display:block;text-align:center;padding:10px 0;font:600 16px var(--f-mono);pointer-events:none}
+.ropt input:checked+label{background:var(--ink);color:var(--bg)}
+.hint{font-size:13px;color:var(--muted)}
+.consent{display:flex;gap:10px;align-items:flex-start;font-size:14px;line-height:1.45}
+.consent input{margin-top:3px;width:18px;height:18px;flex:none}
+output{font-family:var(--f-mono);font-weight:600;color:var(--ink)}
+
+/* portada */
+.hero{display:grid;grid-template-columns:1fr auto;gap:28px;align-items:end}
+.motif{--tile-size:46px;display:grid;gap:6px;justify-items:center}
+.mrow{display:flex;gap:6px}
+details{border-top:1.5px solid var(--line);padding-top:12px}
+summary{cursor:pointer;font-weight:600}
+.proto dl{display:grid;grid-template-columns:1fr;gap:2px 0;margin:14px 0 0}
+.proto dt{font-family:var(--f-display);font-weight:700;margin-top:10px}
+.proto dd{margin:0;color:var(--muted);font-size:14px}
+
+/* mosaicos de estímulo */
+.tile{
+  --tile-size:clamp(84px,calc((100vw - 56px)/3),132px);
+  position:relative;width:var(--tile-size);height:var(--tile-size);
+  background:var(--stim-bg);border:1.5px solid var(--line);border-radius:8px;
+  display:grid;place-items:center;padding:0;color:var(--stim-ink);
+}
+.motif .tile{--tile-size:46px}
+.wire .tile{--tile-size:64px}
+.tile svg{width:88%;height:88%;display:block}
+.tile.sample{border:2px solid var(--ink)}
+.num{font-family:var(--f-mono);font-weight:600;font-size:calc(var(--tile-size)*.42);letter-spacing:.04em;color:var(--stim-ink)}
+.key{position:absolute;left:7px;top:4px;font:500 11px var(--f-mono);color:var(--stim-key)}
+.wire .tile{font:600 18px var(--f-mono)}
+
+/* ensayo */
+.bar{display:grid;gap:8px;max-width:440px;margin:0 auto 22px}
+.segs{display:grid;grid-template-columns:repeat(5,1fr);gap:4px}
+.segs i{display:block;height:5px;border-radius:3px;background:linear-gradient(90deg,var(--ink) calc(var(--p)*100%),var(--line) 0)}
+.count{display:flex;justify-content:space-between;font:500 12px var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.board{--g:18px;display:grid;gap:var(--g);max-width:440px;margin:0 auto;justify-items:center}
+.band{position:relative;display:grid;gap:8px;justify-items:center}
+.band+.band::before{content:"";position:absolute;left:50%;top:calc(var(--g)*-1);height:var(--g);width:1.5px;background:var(--line)}
+.cap{font:500 11px var(--f-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.row{display:flex;gap:12px;justify-content:center}
+.cmp{cursor:pointer;font:inherit}
+@media (hover:hover){.cmp:hover{border-color:var(--ink)}}
+.board.locked .cmp{pointer-events:none}
+.board.blank .tile{visibility:hidden}
+.cmp.picked{outline:3px solid var(--muted);outline-offset:2px}
+.cmp.right{outline:3px solid var(--ink);outline-offset:2px}
+.cmp.wrong{outline:3px dashed var(--ink);outline-offset:2px}
+.cmp.right::after,.cmp.wrong::after{
+  position:absolute;top:-11px;right:-11px;width:24px;height:24px;border-radius:50%;
+  display:grid;place-items:center;font:700 13px var(--f-body);
+}
+.cmp.right::after{content:"✓";background:var(--ink);color:var(--bg)}
+.cmp.wrong::after{content:"✕";background:var(--bg);color:var(--ink);border:2px solid var(--ink)}
+.status{min-height:1.6em;font:500 13px var(--f-mono);letter-spacing:.04em;color:var(--ink);text-align:center}
+
+/* instrucciones */
+.wire{display:grid;gap:14px;justify-items:center;background:var(--surface);border:1.5px solid var(--line);border-radius:8px;padding:20px}
+.wire .band{gap:6px}
+.steps{margin:0;padding-left:1.2em;display:grid;gap:8px;max-width:60ch}
+
+/* resultados */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:0 28px}
+.kpis>div{display:grid;gap:2px;padding:14px 0;border-top:1.5px solid var(--ink)}
+.k{font:500 12px var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.v{font:700 clamp(28px,6vw,40px)/1.1 var(--f-display)}
+.s{font-size:14px;color:var(--muted)}
+.tablewrap{overflow-x:auto;border:1.5px solid var(--line);border-radius:8px;background:var(--surface)}
+.tablewrap.tall{max-height:340px;overflow-y:auto}
+table{border-collapse:collapse;width:100%;min-width:540px;font-size:14px}
+th,td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:0}
+th{font:500 11px var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+.n{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+td b{font-family:var(--f-mono);margin-right:6px}
+.charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+figure{position:relative;margin:0;background:var(--surface);border:1.5px solid var(--line);border-radius:8px;padding:14px;min-width:0}
+figure h3{font-size:16px;margin-bottom:8px}
+figcaption{font-size:13px;color:var(--muted);margin-top:6px}
+svg.chart{width:100%;height:auto;display:block}
+.grid{stroke:var(--line);stroke-width:1}
+.tick,.xl{fill:var(--muted);font:500 11px var(--f-mono)}
+.bar-m{fill:var(--bar)}
+.hit{outline:none;cursor:default}
+.hit:hover .bar-m,.hit:focus .bar-m{fill:var(--bar-hi)}
+.hit .ring{fill:none;stroke:none}
+.hit:focus-visible .ring{stroke:var(--ink);stroke-width:2}
+.chance{stroke:var(--ink);stroke-width:1.5;stroke-dasharray:5 4;pointer-events:none}
+.tip{position:absolute;pointer-events:none;background:var(--ink);color:var(--bg);font:600 12px var(--f-mono);padding:6px 9px;border-radius:4px;transform:translate(-50%,-110%);white-space:nowrap;z-index:5}
+.csv textarea{width:100%;min-height:130px;margin-top:10px;font:12px/1.4 var(--f-mono);color:var(--ink);background:var(--surface);border:1.5px solid var(--line);border-radius:6px;padding:10px}
+.actions{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+@media (max-width:560px){.hero{grid-template-columns:1fr}.motif{display:none}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<main id="app" class="wrap"></main>
+
+<script>
+/* ===== CONFIGURACIÓN DEL ESTUDIO: edita estas dos líneas ===== */
+/* 1) URL de la aplicación web de Google Apps Script (empieza con https://script.google.com/...). */
+const ENDPOINT='https://script.google.com/macros/s/AKfycbz5LQcGwOV-bOpjVZV2x654nY1Kk69h41iZ5AEmip0Qx3Dv5ibSVpQnML55vmt03vZi/exec';
+/* 2) Texto de consentimiento que verá cada participante. Déjalo vacío ('') para quitar la casilla. */
+const CONSENT_TEXT='He leído la información del estudio, tengo 18 años o más y acepto participar. Entiendo que mis respuestas y tiempos se guardan de forma anónima con el código que escriba.';
+
+/* ===== utilidades ===== */
+const rnd=n=>Math.floor(Math.random()*n);
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=rnd(i+1);[a[i],a[j]]=[a[j],a[i]];}return a;}
+const sample=(arr,n)=>shuffle(arr.slice()).slice(0,n);
+const one=arr=>arr[rnd(arr.length)];
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const avg=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:0;
+const median=a=>{if(!a.length)return 0;const s=a.slice().sort((x,y)=>x-y);const m=s.length>>1;return s.length%2?s[m]:(s[m-1]+s[m])/2;};
+const nf=d=>new Intl.NumberFormat('es-MX',{minimumFractionDigits:d,maximumFractionDigits:d});
+const f2=nf(2),f0=nf(0);
+const sec=ms=>f2.format(ms/1000);
+function dur(ms){const s=Math.round(ms/1000);const m=Math.floor(s/60);return m?`${m} min ${s%60} s`:`${s} s`;}
+function shade(hex,f){const n=parseInt(hex.slice(1),16);const m=v=>Math.round(v*(1-f));return '#'+[(n>>16)&255,(n>>8)&255,n&255].map(m).map(v=>v.toString(16).padStart(2,'0')).join('');}
+
+/* ===== catálogo de estímulos ===== */
+const poly=(n,R,rot,r)=>{const pts=[];const m=r?n*2:n;for(let i=0;i<m;i++){const a=(rot+i*360/m)*Math.PI/180;const q=r&&i%2?r:R;pts.push((q*Math.cos(a)).toFixed(1)+','+(q*Math.sin(a)).toFixed(1));}return pts.join(' ');};
+const SHAPES={
+  circulo:{n:'círculo',d:a=>`<circle r="46" ${a}/>`},
+  cuadrado:{n:'cuadrado',d:a=>`<rect x="-40" y="-40" width="80" height="80" rx="2" ${a}/>`},
+  triangulo:{n:'triángulo',d:a=>`<polygon points="0,-44 48,36 -48,36" ${a}/>`},
+  rombo:{n:'rombo',d:a=>`<polygon points="0,-48 38,0 0,48 -38,0" ${a}/>`},
+  hexagono:{n:'hexágono',d:a=>`<polygon points="${poly(6,46,0)}" ${a}/>`},
+  estrella:{n:'estrella',d:a=>`<polygon points="${poly(5,48,-90,20)}" ${a}/>`},
+  pentagono:{n:'pentágono',d:a=>`<polygon points="${poly(5,46,-90)}" ${a}/>`},
+  cruz:{n:'cruz',d:a=>`<polygon points="-15,-46 15,-46 15,-15 46,-15 46,15 15,15 15,46 -15,46 -15,15 -46,15 -46,-15 -15,-15" ${a}/>`},
+  semicirculo:{n:'semicírculo',d:a=>`<path d="M-46 23A46 46 0 0 1 46 23Z" ${a}/>`},
+  trapecio:{n:'trapecio',d:a=>`<polygon points="-26,-34 26,-34 48,34 -48,34" ${a}/>`},
+  octagono:{n:'octágono',d:a=>`<polygon points="${poly(8,46,22.5)}" ${a}/>`},
+  flecha:{n:'flecha',d:a=>`<polygon points="-46,-14 4,-14 4,-34 46,0 4,34 4,14 -46,14" ${a}/>`}
+};
+const TEX={solida:'sólida',rayas:'rayas',puntos:'puntos',cuadricula:'cuadrícula'};
+const C1=[
+  {id:'rojo',n:'rojo',hex:'#DC3F3A'},{id:'azul',n:'azul',hex:'#2B6BDA'},{id:'verde',n:'verde',hex:'#2A9D5C'},
+  {id:'amarillo',n:'amarillo',hex:'#F0C020'},{id:'morado',n:'morado',hex:'#8650CC'},{id:'naranja',n:'naranja',hex:'#EE8420'}
+];
+const BAD1=[['rojo','naranja'],['naranja','amarillo']];
+const C2=[
+  {id:'magenta',n:'magenta',hex:'#D0369A'},{id:'turquesa',n:'turquesa',hex:'#12A3A0'},{id:'marron',n:'marrón',hex:'#86552F'},
+  {id:'lima',n:'lima',hex:'#86C232'},{id:'marino',n:'azul marino',hex:'#1F3580'}
+];
+const K5=[0.30,0.44,0.60,0.78,0.96];
+const SH1=['circulo','cuadrado','triangulo','rombo','hexagono','estrella'];
+
+const TESTS=[
+  {n:'Adquisición base',d:'Figuras simples que varían en forma y color. Criterio: semejanza en color.'},
+  {n:'Transferencia intradimensional (cercana)',d:'Las mismas relaciones de semejanza física con formas, colores, tamaños y texturas nuevos.'},
+  {n:'Transferencia extramodal (intermedia)',d:'Estímulos monocromáticos que varían en tamaño y forma. Criterio: semejanza en tamaño.'},
+  {n:'Transferencia extrarelacional',d:'Cambia el criterio: semejanza en forma o diferencia.'},
+  {n:'Transferencia extradimensional (lejana)',d:'Cifras de dos dígitos. Criterio: relación de decenas o de unidades.'}
+];
+const W={
+  1:{shapes:SH1,cols:C1,bad:BAD1,ks:[0.84],texs:['solida'],dim:'color',rel:'semejanza en color'},
+  2:{shapes:['pentagono','cruz','semicirculo','trapecio','octagono','flecha'],cols:C2,bad:[],ks:[0.5,0.72,0.94],texs:['solida','rayas','puntos','cuadricula'],dim:'color',rel:'semejanza en color'},
+  3:{shapes:['circulo','cuadrado','triangulo','cruz','rombo','hexagono'],cols:null,bad:[],ks:K5,texs:['solida'],dim:'size',rel:'semejanza en tamaño'},
+  4:{shapes:SH1,cols:C1,bad:BAD1,ks:[0.84],texs:['solida']}
+};
+
+/* ===== dibujo ===== */
+let uid=0;
+function pat(id,tex,hex,k){
+  const w=+(15/k).toFixed(2),base=`<rect width="${w}" height="${w}" fill="${hex}"/>`,ov='fill="#fff" fill-opacity=".6"';
+  const head=`<pattern id="${id}" patternUnits="userSpaceOnUse" width="${w}" height="${w}"`;
+  if(tex==='rayas')return `${head} patternTransform="rotate(45)">${base}<rect width="${w}" height="${(w*.38).toFixed(2)}" ${ov}/></pattern>`;
+  if(tex==='puntos')return `${head}>${base}<circle cx="${w/2}" cy="${w/2}" r="${(w*.2).toFixed(2)}" ${ov}/></pattern>`;
+  return `${head}>${base}<rect width="${w}" height="${(w*.16).toFixed(2)}" ${ov}/><rect width="${(w*.16).toFixed(2)}" height="${w}" ${ov}/></pattern>`;
+}
+function aria(s){
+  if(s.t==='num')return String(s.v);
+  return `${SHAPES[s.shape].n}${s.col?' '+s.col.n:''}${s.tex!=='solida'?', '+TEX[s.tex]:''}, tamaño ${Math.round(s.k*100)} %`;
+}
+function figSVG(s){
+  const id='p'+(++uid);let defs='',attr;
+  if(!s.col){attr='style="fill:var(--stim-ink)"';}
+  else{
+    let fill=s.col.hex;
+    if(s.tex!=='solida'){defs=pat(id,s.tex,s.col.hex,s.k);fill=`url(#${id})`;}
+    attr=`fill="${fill}" stroke="${shade(s.col.hex,.3)}" stroke-width="${(2.2/s.k).toFixed(2)}" stroke-linejoin="round"`;
+  }
+  return `<svg viewBox="-50 -50 100 100" role="img" aria-label="${esc(aria(s))}"><defs>${defs}</defs><g transform="scale(${s.k})">${SHAPES[s.shape].d(attr)}</g></svg>`;
+}
+const stimHTML=s=>s.t==='num'?`<span class="num">${s.v}</span>`:figSVG(s);
+function desc(s){return s.t==='num'?String(s.v):`${s.shape}/${s.col?s.col.id:'mono'}/${Math.round(s.k*100)}/${s.tex}`;}
+
+/* ===== generación de ensayos ===== */
+function pickCols(pal,bad,n){
+  for(let i=0;i<300;i++){
+    const c=sample(pal,n),ids=c.map(x=>x.id);
+    if(!bad.some(([a,b])=>ids.includes(a)&&ids.includes(b)))return c;
+  }
+  return sample(pal,n);
+}
+function build(sel,sam,cor,others,roles,pos,rel){
+  const o=shuffle([[others[0],roles[0]],[others[1],roles[1]]]);
+  const comps=[],rs=[];let j=0;
+  for(let i=0;i<3;i++){
+    if(i===pos){comps.push(cor);rs.push('correcta');}
+    else{comps.push(o[j][0]);rs.push(o[j][1]);j++;}
+  }
+  return {sel,sam,comps,roles:rs,correct:pos,rel};
+}
+/* Pruebas 1 a 3: los selectores son semejantes en la dimensión criterio (color o tamaño) y distintos en forma. */
+function genMatch(tn,pos){
+  const w=W[tn];
+  const selShapes=sample(w.shapes,2);
+  const [P,Q,R]=sample(w.shapes.filter(s=>!selShapes.includes(s)),3);
+  const mk=(shape,col,k)=>({t:'fig',shape,col,k:k===undefined?one(w.ks):k,tex:one(w.texs)});
+  let sel,sam,cor,d1,d2;
+  if(w.dim==='color'){
+    const [cs,cp,c1,c2]=pickCols(w.cols,w.bad,4);
+    sel=[mk(selShapes[0],cs),mk(selShapes[1],cs)];
+    sam=mk(P,cp);cor=mk(Q,cp);d1=mk(P,c1);d2=mk(R,c2);
+  }else{
+    const ks=sample(w.ks,4);
+    sel=[mk(selShapes[0],null,ks[0]),mk(selShapes[1],null,ks[0])];
+    sam=mk(P,null,ks[1]);cor=mk(Q,null,ks[1]);d1=mk(P,null,ks[2]);d2=mk(R,null,ks[3]);
+  }
+  return build(sel,sam,cor,[d1,d2],['señuelo','neutra'],pos,w.rel);
+}
+/* Prueba 4: semejanza en forma (selectores con la misma forma) o diferencia (selectores distintos en forma y color). */
+function genRel(pos,rel){
+  const w=W[4],K=w.ks[0];
+  const mk=(shape,col)=>({t:'fig',shape,col,k:K,tex:'solida'});
+  const sh=sample(w.shapes,4);
+  if(rel==='semejanza en forma'){
+    const cl=pickCols(w.cols,w.bad,5);
+    const sel=[mk(sh[0],cl[0]),mk(sh[0],cl[1])];
+    const sam=mk(sh[1],cl[2]),cor=mk(sh[1],cl[3]);
+    const d1=mk(sh[2],cl[2]),d2=mk(sh[3],cl[4]);
+    return build(sel,sam,cor,[d1,d2],['señuelo','neutra'],pos,rel);
+  }
+  const [c1,c2]=pickCols(w.cols,w.bad,2);
+  const [cs,cA,cB,cO]=pickCols(w.cols,w.bad,4);
+  const sel=[mk(sh[0],c1),mk(sh[1],c2)];
+  const sam=mk(sh[2],cs),cor=mk(sh[3],cO);
+  return build(sel,sam,cor,[mk(sh[2],cA),mk(sh[2],cB)],['señuelo','señuelo'],pos,rel);
+}
+/* Prueba 5: los selectores comparten decenas o unidades; se elige el número que comparte lo mismo con la muestra. */
+function genNum(pos,rel){
+  const D=()=>1+rnd(9);
+  const mk=(a,b)=>({t:'num',v:a*10+b,a,b});
+  for(let g=0;g<5000;g++){
+    let sel,sam,cor,d1,d2;
+    if(rel==='decenas'){
+      const ts=D(),tp=D(),ta=D(),tb=D(),u=[D(),D(),D(),D(),D()];
+      if(u[0]===u[1]||u[3]===u[2]||u[4]===u[2]||u[4]===u[3])continue;
+      if(new Set([tp,ta,tb]).size<3||[tp,ta,tb].includes(ts))continue;
+      sel=[mk(ts,u[0]),mk(ts,u[1])];sam=mk(tp,u[2]);cor=mk(tp,u[3]);d1=mk(ta,u[2]);d2=mk(tb,u[4]);
+    }else{
+      const us=D(),up=D(),ua=D(),ub=D(),t=[D(),D(),D(),D(),D()];
+      if(t[0]===t[1]||t[3]===t[2]||t[4]===t[2]||t[4]===t[3])continue;
+      if(new Set([up,ua,ub]).size<3||[up,ua,ub].includes(us))continue;
+      sel=[mk(t[0],us),mk(t[1],us)];sam=mk(t[2],up);cor=mk(t[3],up);d1=mk(t[2],ua);d2=mk(t[4],ub);
+    }
+    const all=[...sel,sam,cor,d1,d2];
+    if(all.some(n=>n.a===n.b)||new Set(all.map(n=>n.v)).size!==all.length)continue;
+    return build(sel,sam,cor,[d1,d2],['señuelo','neutra'],pos,rel);
+  }
+  throw new Error('No se pudo generar el ensayo numérico');
+}
+function hasRun(a,m){let r=1;for(let i=1;i<a.length;i++){r=a[i]===a[i-1]?r+1:1;if(r>=m)return true;}return false;}
+function genTest(tn,n){
+  let pos,tries=0;
+  do{pos=[];for(let i=0;i<n;i++)pos.push(i%3);shuffle(pos);tries++;}while(hasRun(pos,3)&&tries<200);
+  const half=(a,b)=>shuffle(Array.from({length:n},(_,i)=>i%2?b:a));
+  const rels=tn===4?half('semejanza en forma','diferencia'):tn===5?half('decenas','unidades'):null;
+  return pos.map((p,i)=>tn<=3?genMatch(tn,p):tn===4?genRel(p,rels[i]):genNum(p,rels[i]));
+}
+
+/* ===== estado ===== */
+const S={screen:'setup',cfg:{pid:'',n:8,fb:'p1'},test:0,trials:[],ti:0,rec:[],t0:0,tStart:0,tEnd:0,locked:true,hidden:false,sid:'',fecha:'',saveMsg:''};
+const ITI=450;
+
+function app(){return document.getElementById('app');}
+function setScreen(html,name){
+  S.screen=name;app().innerHTML=html;
+  if(name!=='trial')window.scrollTo(0,0);
+  const h=app().querySelector('[data-focus]');
+  if(h){h.setAttribute('tabindex','-1');h.focus({preventScroll:true});}
+}
+
+/* ===== pantallas ===== */
+function renderSetup(){
+  const c=S.cfg;
+  const motif=[['circulo','cuadrado'],['triangulo'],['rombo','hexagono','estrella']]
+    .map(r=>`<div class="mrow">${r.map(s=>`<div class="tile">${figSVG({t:'fig',shape:s,col:null,k:.7,tex:'solida'})}</div>`).join('')}</div>`).join('');
+  const proto=TESTS.map((t,i)=>`<dt>Prueba ${i+1} · ${t.n}</dt><dd>${t.d}</dd>`).join('');
+  setScreen(`<section class="screen">
+    <p class="eyebrow">Tarea de laboratorio · 5 pruebas</p>
+    <div class="hero">
+      <div class="screen">
+        <h1 data-focus>Igualación a la muestra de segundo orden</h1>
+        <p class="lead">Dos figuras arriba establecen una relación. Elige, entre tres opciones, la que repite esa relación con la muestra. Cada ensayo registra el acierto y el tiempo de respuesta.</p>
+      </div>
+      <div class="motif" aria-hidden="true">${motif}</div>
+    </div>
+    <form id="f" class="card" autocomplete="off">
+      <div class="field">
+        <label for="pid">Código del participante <span class="opt">(opcional)</span></label>
+        <input id="pid" name="pid" type="text" maxlength="24" placeholder="P01" value="${esc(c.pid)}">
+      </div>
+      <fieldset class="field">
+        <legend>Ensayos por prueba</legend>
+        <div class="radios" role="radiogroup">${[6,8,10,12].map(n=>`<span class="ropt"><input type="radio" name="n" id="n${n}" value="${n}" ${c.n===n?'checked':''}><label for="n${n}">${n}</label></span>`).join('')}</div>
+        <p class="hint"><output id="tot">${c.n*5}</output> ensayos en total, aproximadamente <output id="mins">${Math.max(1,Math.round(c.n*5*6/60))}</output> minutos.</p>
+      </fieldset>
+      <div class="field">
+        <label for="fb">Retroalimentación</label>
+        <select id="fb">
+          <option value="p1" ${c.fb==='p1'?'selected':''}>Solo en la Prueba 1 (adquisición)</option>
+          <option value="all" ${c.fb==='all'?'selected':''}>En todas las pruebas</option>
+          <option value="none" ${c.fb==='none'?'selected':''}>Ninguna</option>
+        </select>
+      </div>
+      ${CONSENT_TEXT?`<label class="consent" for="cons"><input type="checkbox" id="cons" required><span>${esc(CONSENT_TEXT)}</span></label>`:''}
+      <button class="btn" type="submit">Comenzar</button>
+    </form>
+    <details class="proto"><summary>Protocolo de las cinco pruebas</summary><dl>${proto}</dl></details>
+    <p class="fine" id="note">${remoteOn()?'Tus respuestas y tiempos se envían de forma anónima al estudio, junto con el código que escribas.':'Los resultados quedan solo en este navegador. Al terminar podrás copiar o descargar un CSV.'}</p>
+    <button class="btn ghost" type="button" id="adminbtn" hidden>Panel del investigador</button>
+  </section>`,'setup');
+  document.getElementById('adminbtn').addEventListener('click',renderAdmin);
+  updateSetupNote();
+  const f=document.getElementById('f');
+  const upd=()=>{const n=+f.n.value;document.getElementById('tot').textContent=n*5;document.getElementById('mins').textContent=Math.max(1,Math.round(n*5*6/60));};
+  f.querySelectorAll('input[name=n]').forEach(r=>r.addEventListener('change',upd));
+  f.addEventListener('submit',e=>{
+    e.preventDefault();
+    S.cfg={pid:f.pid.value.trim(),n:+f.n.value,fb:f.fb.value};
+    S.rec=[];S.tStart=0;S.sid=newSid();S.fecha=new Date().toISOString();S.saveMsg='';
+    renderInstr();
+  });
+}
+
+function renderInstr(){
+  const L=t=>`<div class="tile">${t}</div>`;
+  setScreen(`<section class="screen">
+    <p class="eyebrow">Instrucciones</p>
+    <h1 data-focus>Antes de empezar</h1>
+    <div class="wire" aria-hidden="true">
+      <div class="band"><span class="cap">Selectores</span><div class="row">${L('A')}${L('B')}</div></div>
+      <div class="band"><span class="cap">Muestra</span><div class="row"><div class="tile sample">M</div></div></div>
+      <div class="band"><span class="cap">Comparación</span><div class="row">${L('1')}${L('2')}${L('3')}</div></div>
+    </div>
+    <ol class="steps">
+      <li>Las dos figuras de arriba guardan una relación entre sí.</li>
+      <li>Elige la opción de abajo que guarde esa misma relación con la muestra.</li>
+      <li>Toca la opción o pulsa 1, 2 o 3 en el teclado.</li>
+      <li>Responde con rapidez y sin errores. Se registran tus aciertos y tu tiempo de respuesta.</li>
+    </ol>
+    <button class="btn" id="go">Empezar Prueba 1</button>
+  </section>`,'instr');
+  document.getElementById('go').addEventListener('click',()=>startTest(1,true));
+}
+
+function startTest(i,skip){
+  S.test=i;S.trials=genTest(i,S.cfg.n);S.ti=0;
+  if(skip){showTrial();return;}
+  setScreen(`<section class="screen">
+    <p class="eyebrow">Prueba ${i} de 5</p>
+    <h1 data-focus>Prueba ${i}</h1>
+    <p class="lead">${S.cfg.n} ensayos. La tarea es la misma: elige la opción de abajo que guarde con la muestra la relación que guardan las dos de arriba.</p>
+    <p>Responde con rapidez y sin errores.</p>
+    <button class="btn" id="go">Comenzar Prueba ${i}</button>
+  </section>`,'intro');
+  document.getElementById('go').addEventListener('click',showTrial);
+}
+
+function trialHeader(){
+  const segs=TESTS.map((_,i)=>{const p=i+1<S.test?1:i+1===S.test?S.ti/S.trials.length:0;return `<i style="--p:${p}"></i>`;}).join('');
+  return `<header class="bar"><div class="segs" role="progressbar" aria-label="Progreso" aria-valuemin="0" aria-valuemax="${S.cfg.n*5}" aria-valuenow="${(S.test-1)*S.cfg.n+S.ti}">${segs}</div>
+  <p class="count"><span>Prueba ${S.test} de 5</span><span>Ensayo ${S.ti+1} de ${S.trials.length}</span></p></header>`;
+}
+
+function showTrial(){
+  const tr=S.trials[S.ti];
+  const sel=tr.sel.map(s=>`<div class="tile">${stimHTML(s)}</div>`).join('');
+  const cmp=tr.comps.map((c,i)=>`<button type="button" class="tile cmp" data-i="${i}" aria-label="Opción ${i+1}: ${esc(aria(c))}">${stimHTML(c)}<span class="key" aria-hidden="true">${i+1}</span></button>`).join('');
+  setScreen(`${trialHeader()}<div class="board" id="board">
+    <section class="band"><h2 class="cap">Selectores</h2><div class="row">${sel}</div></section>
+    <section class="band"><h2 class="cap">Muestra</h2><div class="row"><div class="tile sample">${stimHTML(tr.sam)}</div></div></section>
+    <section class="band"><h2 class="cap">Comparación</h2><div class="row">${cmp}</div></section>
+    <p class="status" id="status" role="status"></p></div>`,'trial');
+  app().querySelectorAll('.cmp').forEach(b=>b.addEventListener('click',()=>choose(+b.dataset.i)));
+  S.locked=true;S.hidden=false;
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    S.t0=performance.now();if(!S.tStart)S.tStart=S.t0;S.locked=false;
+  }));
+}
+
+function choose(i){
+  if(S.screen!=='trial'||S.locked)return;
+  S.locked=true;
+  const rt=performance.now()-S.t0;
+  const tr=S.trials[S.ti],ok=i===tr.correct;
+  S.rec.push({test:S.test,trial:S.ti+1,rel:tr.rel,posCorrect:tr.correct+1,resp:i+1,ok,role:tr.roles[i],rt:Math.round(rt),hidden:S.hidden,sel:tr.sel.map(desc),sam:desc(tr.sam),comps:tr.comps.map(desc)});
+  const fb=S.cfg.fb==='all'||(S.cfg.fb==='p1'&&S.test===1);
+  const board=document.getElementById('board'),status=document.getElementById('status');
+  board.classList.add('locked');
+  const btns=board.querySelectorAll('.cmp');
+  if(fb){
+    btns[tr.correct].classList.add('right');
+    if(!ok)btns[i].classList.add('wrong');
+    status.textContent=ok?'Correcto':'Incorrecto';
+  }else{
+    btns[i].classList.add('picked');
+    status.textContent='Respuesta registrada';
+  }
+  setTimeout(()=>{
+    board.classList.add('blank');status.textContent='';
+    setTimeout(next,ITI);
+  },fb?900:300);
+}
+function next(){
+  S.ti++;
+  if(S.ti<S.trials.length)showTrial();
+  else if(S.test<5){saveSession(false);startTest(S.test+1,false);}
+  else{S.tEnd=performance.now();saveSession(true);renderResults();}
+}
+
+/* ===== resultados ===== */
+function summarize(rs){
+  const ok=rs.filter(r=>r.ok);
+  return {n:rs.length,ok:ok.length,pct:rs.length?ok.length/rs.length*100:0,mean:avg(rs.map(r=>r.rt)),med:median(rs.map(r=>r.rt)),meanOk:avg(ok.map(r=>r.rt))};
+}
+function csvCell(v){return '"'+String(v).replace(/"/g,'""')+'"';}
+/* list: [{uid, pid, sid, fecha, completa, ensayos:[...]}] -> un renglón por ensayo */
+function toCSV(list){
+  const head=['id_usuario','participante','sesion','fecha','sesion_completa','prueba','nombre_prueba','ensayo','relacion','posicion_correcta','respuesta','acierto','tipo_respuesta','tr_ms','pestana_oculta','selector_1','selector_2','muestra','comparacion_1','comparacion_2','comparacion_3'];
+  const rows=[];
+  list.forEach(s=>(s.ensayos||[]).forEach(r=>rows.push([s.uid||'',s.pid||'sin_codigo',s.sid,s.fecha,s.completa?1:0,r.test,TESTS[r.test-1].n,r.trial,r.rel,r.posCorrect,r.resp,r.ok?1:0,r.role,r.rt,r.hidden?1:0,r.sel[0],r.sel[1],r.sam,...r.comps])));
+  return [head,...rows].map(r=>r.map(csvCell).join(',')).join('\n');
+}
+/* un renglón por sesión: aciertos, porcentaje y TR medio de cada prueba */
+function toSummaryCSV(list){
+  const head=['id_usuario','participante','sesion','fecha','sesion_completa','ensayos_por_prueba','aciertos_total','ensayos_total','pct_total','tr_medio_ms_total'];
+  for(let t=1;t<=5;t++)head.push('p'+t+'_aciertos','p'+t+'_pct','p'+t+'_tr_medio_ms');
+  const rows=list.map(s=>{
+    const rs=s.ensayos||[],a=summarize(rs);
+    const row=[s.uid||'',s.pid||'sin_codigo',s.sid,s.fecha,s.completa?1:0,s.n,a.ok,a.n,a.pct.toFixed(1),Math.round(a.mean)];
+    for(let t=1;t<=5;t++){const x=summarize(rs.filter(r=>r.test===t));row.push(x.ok,x.pct.toFixed(1),Math.round(x.mean));}
+    return row;
+  });
+  return [head,...rows].map(r=>r.map(csvCell).join(',')).join('\n');
+}
+const mySession=()=>({uid:CAP.uid||'',pid:S.cfg.pid,sid:S.sid,fecha:S.fecha,completa:true,n:S.cfg.n,ensayos:S.rec});
+function chartSVG(vals,o){
+  const W=340,H=216,L=40,R=10,T=14,B=30,pw=W-L-R,ph=H-T-B,band=pw/vals.length,bw=Math.min(24,band*.5);
+  const y=v=>T+ph-(v/o.max)*ph,base=T+ph;
+  let grid='',bars='',xl='';
+  o.ticks.forEach(t=>{grid+=`<line class="grid" x1="${L}" x2="${W-R}" y1="${y(t).toFixed(1)}" y2="${y(t).toFixed(1)}"/><text class="tick" x="${L-8}" y="${(y(t)+4).toFixed(1)}" text-anchor="end">${t}${o.unit||''}</text>`;});
+  vals.forEach((v,i)=>{
+    const cx=L+band*i+band/2,x=cx-bw/2,top=y(v),h=base-top;
+    let bar='';
+    if(h>.5){const r=Math.min(4,h);bar=`<path class="bar-m" d="M${x.toFixed(1)},${base}V${(top+r).toFixed(1)}Q${x.toFixed(1)},${top.toFixed(1)} ${(x+r).toFixed(1)},${top.toFixed(1)}H${(x+bw-r).toFixed(1)}Q${(x+bw).toFixed(1)},${top.toFixed(1)} ${(x+bw).toFixed(1)},${(top+r).toFixed(1)}V${base}Z"/>`;}
+    bars+=`<g class="hit" tabindex="0" data-tip="${esc(o.tips[i])}" role="img" aria-label="${esc(o.tips[i])}"><rect class="ring" x="${(L+band*i+2).toFixed(1)}" y="${T}" width="${(band-4).toFixed(1)}" height="${ph}" rx="4"/>${bar}<rect x="${(L+band*i).toFixed(1)}" y="${T}" width="${band.toFixed(1)}" height="${ph+B-8}" fill="transparent"/></g>`;
+    xl+=`<text class="xl" x="${cx.toFixed(1)}" y="${H-10}" text-anchor="middle">P${i+1}</text>`;
+  });
+  const chance=o.chance!=null?`<line class="chance" x1="${L}" x2="${W-R}" y1="${y(o.chance).toFixed(1)}" y2="${y(o.chance).toFixed(1)}"/>`:'';
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="group" aria-label="${esc(o.label)}">${grid}${bars}${chance}${xl}</svg>`;
+}
+function attachTips(fig){
+  const tip=document.createElement('div');tip.className='tip';tip.hidden=true;fig.appendChild(tip);
+  const show=(g,e)=>{
+    tip.textContent=g.dataset.tip;tip.hidden=false;
+    const fr=fig.getBoundingClientRect(),r=g.getBoundingClientRect();
+    const px=e&&e.clientX!==undefined?e.clientX:r.left+r.width/2;
+    const py=e&&e.clientY!==undefined?e.clientY:r.top+r.height/2;
+    tip.style.left=Math.min(Math.max(px-fr.left,60),fr.width-60)+'px';
+    tip.style.top=(py-fr.top)+'px';
+  };
+  fig.querySelectorAll('.hit').forEach(g=>{
+    g.addEventListener('pointermove',e=>show(g,e));
+    g.addEventListener('pointerleave',()=>{tip.hidden=true;});
+    g.addEventListener('focus',()=>{const r=g.querySelector('path');show(g,null);});
+    g.addEventListener('blur',()=>{tip.hidden=true;});
+  });
+}
+function renderResults(){
+  const by=[1,2,3,4,5].map(t=>S.rec.filter(r=>r.test===t));
+  const sm=by.map(summarize),all=summarize(S.rec);
+  const pid=S.cfg.pid||'Sin código';
+  const date=new Date().toLocaleString('es-MX',{dateStyle:'medium',timeStyle:'short'});
+  const rows=sm.map((s,i)=>`<tr><td><b>P${i+1}</b>${TESTS[i].n}</td><td class="n">${s.ok} / ${s.n}</td><td class="n">${f0.format(s.pct)} %</td><td class="n">${sec(s.mean)}</td><td class="n">${sec(s.med)}</td><td class="n">${s.ok?sec(s.meanOk):'—'}</td></tr>`).join('');
+  const trialRows=S.rec.map(r=>`<tr><td class="n">P${r.test}</td><td class="n">${r.trial}</td><td>${esc(r.rel)}</td><td class="n">${r.resp}</td><td>${r.ok?'Acierto':'Error · '+r.role}</td><td class="n">${sec(r.rt)}</td></tr>`).join('');
+  const accTips=sm.map((s,i)=>`P${i+1} · ${f0.format(s.pct)} % (${s.ok} de ${s.n})`);
+  const mx=Math.max(...sm.map(s=>s.mean/1000),.1);
+  const step=mx<=2?.5:mx<=5?1:mx<=10?2:5,rmax=Math.ceil(mx/step)*step,rticks=[];
+  for(let t=0;t<=rmax+1e-9;t+=step)rticks.push(+t.toFixed(2));
+  const rtTips=sm.map((s,i)=>`P${i+1} · ${sec(s.mean)} s`);
+  const csv=toCSV([mySession()]);
+  const hiddenN=S.rec.filter(r=>r.hidden).length;
+  setScreen(`<section class="screen">
+    <p class="eyebrow">Resultados · ${esc(pid)} · ${esc(date)}</p>
+    <h1 data-focus>Sesión completada</h1>
+    <div class="kpis">
+      <div><span class="k">Aciertos</span><span class="v">${all.ok} / ${all.n}</span><span class="s">${f0.format(all.pct)} % de respuestas correctas</span></div>
+      <div><span class="k">Tiempo medio</span><span class="v">${sec(all.mean)} s</span><span class="s">mediana ${sec(all.med)} s por ensayo</span></div>
+      <div><span class="k">Duración</span><span class="v">${dur(S.tEnd-S.tStart)}</span><span class="s">de la primera a la última respuesta</span></div>
+    </div>
+    <h2>Por prueba</h2>
+    <div class="tablewrap"><table>
+      <caption class="sr-only">Aciertos y tiempos de respuesta por prueba</caption>
+      <thead><tr><th>Prueba</th><th class="n">Aciertos</th><th class="n">%</th><th class="n">TR medio (s)</th><th class="n">TR mediana (s)</th><th class="n">TR aciertos (s)</th></tr></thead>
+      <tbody>${rows}</tbody></table></div>
+    <div class="charts">
+      <figure id="fa"><h3>Aciertos por prueba</h3>${chartSVG(sm.map(s=>s.pct),{max:100,ticks:[0,25,50,75,100],unit:' %',chance:100/3,tips:accTips,label:'Porcentaje de aciertos por prueba'})}<figcaption>La línea discontinua marca el nivel de azar (33 %).</figcaption></figure>
+      <figure id="fr"><h3>Tiempo de respuesta</h3>${chartSVG(sm.map(s=>s.mean/1000),{max:rmax,ticks:rticks,unit:' s',tips:rtTips,label:'Tiempo medio de respuesta por prueba en segundos'})}<figcaption>Media por prueba, en segundos.</figcaption></figure>
+    </div>
+    <details><summary>Ensayo por ensayo</summary>
+      <div class="tablewrap tall" style="margin-top:10px"><table>
+        <thead><tr><th class="n">Prueba</th><th class="n">Ens.</th><th>Relación</th><th class="n">Resp.</th><th>Resultado</th><th class="n">TR (s)</th></tr></thead>
+        <tbody>${trialRows}</tbody></table></div>
+    </details>
+    <details class="csv" id="csvd"><summary>Datos en CSV</summary>
+      <textarea id="csv" readonly aria-label="Datos de la sesión en formato CSV">${esc(csv)}</textarea>
+      <div class="actions" style="margin-top:10px"><button type="button" class="btn ghost" id="cp">Copiar CSV</button>${CAP.dl?'<button type="button" class="btn ghost" id="dl">Descargar CSV</button>':''}<span class="hint" id="cpm" role="status"></span></div>
+    </details>
+    <p class="fine" id="savemsg" role="status">${esc(S.saveMsg)}</p>
+    ${hiddenN?`<p class="fine">${hiddenN} ensayo(s) se realizaron con la pestaña oculta en algún momento; su tiempo puede no ser fiable (columna pestana_oculta).</p>`:''}
+    <div class="actions"><button class="btn" id="again">Nueva sesión</button></div>
+  </section>`,'results');
+  attachTips(document.getElementById('fa'));attachTips(document.getElementById('fr'));
+  document.getElementById('again').addEventListener('click',()=>{S.rec=[];S.tStart=0;renderSetup();});
+  document.getElementById('cp').addEventListener('click',()=>copyCSV(csv,'cpm','csv','csvd'));
+  const dl=document.getElementById('dl');
+  if(dl)dl.addEventListener('click',()=>exportCSV('igualacion_'+(S.cfg.pid||'sin_codigo')+'_'+S.sid+'.csv',csv,'cpm'));
+}
+async function copyCSV(csv,msgId,taId,detId){
+  const m=document.getElementById(msgId),ta=document.getElementById(taId);
+  try{await navigator.clipboard.writeText(csv);m.textContent='CSV copiado.';}
+  catch(e){if(detId)document.getElementById(detId).open=true;ta.value=csv;ta.focus();ta.select();m.textContent='Selecciona el texto y cópialo con Ctrl+C.';}
+}
+async function exportCSV(filename,csv,msgId){
+  const m=document.getElementById(msgId);
+  if(!CAP.dl){m.textContent='La descarga no está disponible aquí. Usa Copiar CSV.';return;}
+  try{await CAP.dl.save({filename,data:'﻿'+csv});m.textContent='Archivo guardado.';}
+  catch(e){m.textContent=e&&e.code==='declined'?'Descarga cancelada.':'No se pudo descargar. Usa Copiar CSV.';}
+}
+
+/* ===== almacenamiento compartido (capacidad db) ===== */
+const CAP={db:null,user:null,dl:null,uid:null,admin:false};
+let saveChain=Promise.resolve();
+function newSid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
+function setSaveMsg(t){S.saveMsg=t;const el=document.getElementById('savemsg');if(el)el.textContent=t;}
+function updateSetupNote(){
+  const n=document.getElementById('note'),b=document.getElementById('adminbtn');
+  if(!n||!b)return;
+  if(CAP.db&&CAP.uid)n.textContent='Tus respuestas y tiempos se guardan en el estudio junto con el código que escribas.';
+  b.hidden=!(CAP.db&&CAP.admin);
+}
+async function initCaps(){
+  const c=window.claude;
+  if(!c||!c.use)return;
+  try{
+    const [db,user,dl]=await Promise.all([c.use('db'),c.use('user'),c.use('downloads')]);
+    CAP.db=db;CAP.user=user;CAP.dl=dl;
+    if(user){CAP.uid=await user.id();CAP.admin=await user.canEdit();}
+  }catch(e){}
+  if(S.screen==='setup')updateSetupNote();
+}
+/* Un documento por participante: sesiones/<id_usuario> con todas sus sesiones dentro. */
+/* ===== envío al estudio fuera de Claude (Google Apps Script -> Google Sheets) ===== */
+function remoteOn(){return typeof ENDPOINT==='string'&&/^https:\/\//.test(ENDPOINT);}
+function anonId(){
+  try{let v=localStorage.getItem('igual_uid');if(!v){v='a_'+Math.random().toString(36).slice(2,10)+Date.now().toString(36);localStorage.setItem('igual_uid',v);}return v;}
+  catch(e){return 'a_'+S.sid;}
+}
+function pend(){try{return JSON.parse(localStorage.getItem('igual_pend')||'{}');}catch(e){return {};}}
+function setPend(o){try{localStorage.setItem('igual_pend',JSON.stringify(o));}catch(e){}}
+async function post(p){
+  const r=await fetch(ENDPOINT,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(p)});
+  const j=await r.json();
+  if(!j||!j.ok)throw new Error((j&&j.error)||'rechazado');
+}
+/* Envía lo pendiente; lo que falla queda guardado en el navegador y se reintenta después. */
+async function flushPending(show){
+  if(!remoteOn())return;
+  const q=pend(),ids=Object.keys(q);
+  if(!ids.length)return;
+  let fail=false;
+  for(const id of ids){
+    try{
+      await post(q[id]);
+      const c=pend();
+      if(JSON.stringify(c[id])===JSON.stringify(q[id])){delete c[id];setPend(c);}
+    }catch(e){fail=true;}
+  }
+  if(show)setSaveMsg(fail?'No se pudo enviar. Los datos se reenviarán cuando haya conexión. Mientras tanto, copia o descarga el CSV.':'Datos enviados al estudio.');
+}
+function sendRemote(final){
+  const s={uid:anonId(),pid:S.cfg.pid,sid:S.sid,fecha:S.fecha,completa:final,n:S.cfg.n,ensayos:S.rec.map(r=>({...r}))};
+  const q=pend();q[S.sid]={sid:S.sid,csvEnsayos:toCSV([s]),csvResumen:toSummaryCSV([s])};setPend(q);
+  setSaveMsg('Enviando datos…');
+  saveChain=saveChain.then(()=>flushPending(true));
+  return saveChain;
+}
+function saveSession(final){
+  if(remoteOn())return sendRemote(final);
+  if(!CAP.db||!CAP.uid){setSaveMsg('Los datos no se guardaron en el estudio. Copia o descarga el CSV para conservarlos.');return saveChain;}
+  const body={sid:S.sid,pid:S.cfg.pid||'',fecha:S.fecha,n:S.cfg.n,fb:S.cfg.fb,completa:final,pantalla:innerWidth+'x'+innerHeight,duracion_ms:final?Math.round(S.tEnd-S.tStart):null,ensayos:S.rec.map(r=>({...r}))};
+  setSaveMsg('Guardando datos…');
+  saveChain=saveChain.then(async()=>{
+    const ref=CAP.db.doc('sesiones/'+CAP.uid);
+    const snap=await ref.get();
+    if(snap.exists)await ref.update({sesiones:{[body.sid]:body}});
+    else await ref.set({uid:CAP.uid,sesiones:{[body.sid]:body}});
+    setSaveMsg('Datos guardados en el estudio.');
+  }).catch(e=>setSaveMsg('No se pudieron guardar los datos'+(e&&e.code?' ('+e.code+')':'')+'. Copia o descarga el CSV.'));
+  return saveChain;
+}
+
+/* ===== panel del investigador: todas las sesiones de todos los participantes ===== */
+async function renderAdmin(){
+  setScreen(`<section class="screen"><h1 data-focus>Panel del investigador</h1><p class="fine" role="status">Cargando sesiones…</p></section>`,'admin');
+  let docs=null;
+  try{docs=(await CAP.db.collection('sesiones').get()).docs;}catch(e){}
+  if(!docs){
+    setScreen(`<section class="screen"><h1 data-focus>Panel del investigador</h1><p>No se pudieron leer los datos. Vuelve a intentarlo en unos segundos.</p><button class="btn" id="back">Volver</button></section>`,'admin');
+    document.getElementById('back').addEventListener('click',renderSetup);return;
+  }
+  const list=[];
+  docs.forEach(d=>{const x=d.data()||{};Object.values(x.sesiones||{}).forEach(s=>list.push({...s,uid:d.id}));});
+  list.sort((a,b)=>String(b.fecha).localeCompare(String(a.fecha)));
+  const people=new Set(list.map(s=>s.uid)).size,done=list.filter(s=>s.completa).length;
+  const rows=list.map(s=>{
+    const rs=s.ensayos||[],a=summarize(rs);
+    const f=new Date(s.fecha).toLocaleString('es-MX',{dateStyle:'short',timeStyle:'short'});
+    const pc=[1,2,3,4,5].map(t=>{const x=summarize(rs.filter(r=>r.test===t));return `<td class="n">${x.n?f0.format(x.pct)+' %':'—'}</td>`;}).join('');
+    return `<tr><td>${esc(s.pid||'Sin código')}</td><td>${esc(f)}</td><td>${s.completa?'Completa':'Parcial'}</td><td class="n">${a.ok} / ${a.n}</td><td class="n">${a.n?sec(a.mean):'—'}</td>${pc}</tr>`;
+  }).join('');
+  setScreen(`<section class="screen">
+    <p class="eyebrow">Estudio · datos compartidos</p>
+    <h1 data-focus>Panel del investigador</h1>
+    <div class="kpis">
+      <div><span class="k">Sesiones</span><span class="v">${list.length}</span><span class="s">${done} completas</span></div>
+      <div><span class="k">Participantes</span><span class="v">${people}</span><span class="s">cuentas distintas</span></div>
+    </div>
+    ${list.length?`<div class="tablewrap"><table>
+      <caption class="sr-only">Sesiones guardadas</caption>
+      <thead><tr><th>Código</th><th>Fecha</th><th>Estado</th><th class="n">Aciertos</th><th class="n">TR medio (s)</th><th class="n">P1</th><th class="n">P2</th><th class="n">P3</th><th class="n">P4</th><th class="n">P5</th></tr></thead>
+      <tbody>${rows}</tbody></table></div>`:'<p>Todavía no hay sesiones guardadas.</p>'}
+    <div class="actions">
+      <button class="btn" id="dl1" ${list.length?'':'disabled'}>Descargar ensayos (CSV)</button>
+      <button class="btn ghost" id="dl2" ${list.length?'':'disabled'}>Descargar resumen (CSV)</button>
+      <button class="btn ghost" id="cp1" ${list.length?'':'disabled'}>Copiar ensayos</button>
+      <button class="btn ghost" id="back">Volver</button>
+    </div>
+    <p class="hint" id="admm" role="status"></p>
+    <textarea id="admta" class="csv" readonly aria-label="Datos en CSV" style="width:100%;min-height:120px;font:12px var(--f-mono);color:var(--ink);background:var(--surface);border:1.5px solid var(--line);border-radius:6px;padding:10px" hidden></textarea>
+  </section>`,'admin');
+  const trials=toCSV(list),summ=toSummaryCSV(list),day=new Date().toISOString().slice(0,10);
+  document.getElementById('dl1').addEventListener('click',()=>exportCSV('igualacion_ensayos_'+day+'.csv',trials,'admm'));
+  document.getElementById('dl2').addEventListener('click',()=>exportCSV('igualacion_resumen_'+day+'.csv',summ,'admm'));
+  document.getElementById('cp1').addEventListener('click',()=>{document.getElementById('admta').hidden=false;copyCSV(trials,'admm','admta',null);});
+  document.getElementById('back').addEventListener('click',renderSetup);
+}
+
+/* ===== arranque ===== */
+function init(){
+  document.addEventListener('visibilitychange',()=>{if(document.hidden)S.hidden=true;});
+  document.addEventListener('keydown',e=>{
+    if(S.screen==='trial'&&!S.locked&&['1','2','3'].includes(e.key)){e.preventDefault();choose(+e.key-1);}
+  });
+  renderSetup();
+  initCaps();
+  flushPending(false);
+  window.addEventListener('online',()=>flushPending(true));
+}
+if(typeof document!=='undefined')init();
+</script>
+
+</html>
